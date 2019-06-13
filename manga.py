@@ -4,7 +4,6 @@ import io
 import requests
 import time
 from requests_html import HTMLSession
-from tqdm import tqdm
 
 class Manga :
 
