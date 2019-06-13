@@ -19,7 +19,6 @@
 
 
 - Adding a GUI Soon
-- New Feature will be add Soon
-- Future Feature will be added soon such as Doujin, Anime and Hentai Downloader Soon
-
+- New Feature will be add soon
+- Future Feature will be added soon such as Doujin, Anime and Hentai Downloader, Torrent, Video Streaming ( YouTube, Twitch, Facebook and etc. ), and more.
 
