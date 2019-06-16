@@ -5,8 +5,12 @@
 - Use as URL to Download any Manga, Doujin and etc
 - This Project is made from Scratch using Python
 
+# How to use this? 
 
-# How to use this?
+- Follow the Menu 
+- To Paste the URL, Click Right Click and Press "Paste" then Enter
+
+# How to use this? (Developer Only)
 
 - Download Python and Install
 - Go to in Terminal for Linux or CMD for Windows
