@@ -7,6 +7,7 @@
 
 # How to use this? 
 
+- Go to "dist" Folder then find the name of "main.exe" for Windows OS
 - Follow the Menu 
 - To Paste the URL, Click Right Click and Press "Paste" then Enter
 
