@@ -2,6 +2,9 @@ import sys
 import os
 import io
 import requests
+import json
+
+from tqdm import tqdm
 from requests_html import HTMLSession
 
 class Manga :
@@ -11,29 +14,25 @@ class Manga :
 
         #If There is a Chapter
         if temp[4] != "":
-            GetTitle = HTMLSession().get('www.mangareader.net' + temp[3])
+            GetTitle = HTMLSession().get('https://www.mangareader.net/' + temp[3])
             Title = GetTitle.html.find('.aname', first=True).text
             Request = HTMLSession().get(Url)
             Page = Request.html.find('#pageMenu option')
 
             self.CheckTitle(Title)
-            self.CheckChapter(temp[4])
-            print('Download Chapter No# ', temp[4])
+            self.CheckChapter(temp[4].replace('/', ''))
+            print('Download Chapter No# ', temp[4].replace('/', ''))
 
             for getPage in Page:
                 temp_getPage = getPage.find('option', first=True).attrs['value']
-                _Image = HTMLSession().get('www.mangareader.net' + temp_getPage)
+                _Image = HTMLSession().get('https://www.mangareader.net' + temp_getPage)
                 Image = _Image.html.find('#imgholder img', first=True).attrs['src']
-                    
-                _Download = HTMLSession().get(Image)
                 Filename = str(getPage.find('option', first=True).text)
 
-                with open(Filename + '.jpg', 'wb') as x:
-                    x.write(_Download.content)
-                    x.close()
+                self.Download(Image, Filename, '.jpg')
 
             os.chdir('../../../../')
-            print('Download Done!')
+            print('\n\nDownload Done!')
             print('Download Complete!')
 
         #If Not has Chapter only Title
@@ -56,16 +55,12 @@ class Manga :
                     temp_getPage = getPage.find('option', first=True).attrs['value']
                     _Image = HTMLSession().get('https://www.mangareader.net' + temp_getPage)
                     Image = _Image.html.find('#imgholder img', first=True).attrs['src']
-                    
-                    _Download = HTMLSession().get(Image)
                     Filename = str(getPage.find('option', first=True).text)
 
-                    with open(Filename + '.jpg', 'wb') as x:
-                        x.write(_Download.content)
-                        x.close()
+                    self.Download(Image, Filename, '.jpg')
 
                 os.chdir('..')
-                print('Download Done!')
+                print('\n\nDownload Done!')
 
             os.chdir('../../../')
             print('Download Complete!')
@@ -90,15 +85,12 @@ class Manga :
                 _Image = HTMLSession().get('https://www.mangapanda.com' + temp_getPage)
                 Image = _Image.html.find('#imgholder img', first=True).attrs['src']
                     
-                _Download = HTMLSession().get(Image)
                 Filename = str(getPage.find('option', first=True).text)
 
-                with open(Filename + '.jpg', 'wb') as x:
-                    x.write(_Download.content)
-                    x.close()
+                self.Download(Image, Filename, '.jpg')
 
             os.chdir('../../../../')
-            print('Downloaded!')
+            print('\n\nDownloaded!')
             print('Download Complete!')
 
         #If Not has Chapter only Title
@@ -122,15 +114,12 @@ class Manga :
                     _Image = HTMLSession().get('https://www.mangapanda.com' + temp_getPage)
                     Image = _Image.html.find('#imgholder img', first=True).attrs['src']
                     
-                    _Download = HTMLSession().get(Image)
                     Filename = str(getPage.find('option', first=True).text)
 
-                    with open(Filename + '.jpg', 'wb') as x:
-                        x.write(_Download.content)
-                        x.close()
+                    self.Download(Image, Filename, '.jpg')
 
                 os.chdir('..')
-                print('Download Done!')
+                print('\n\nDownload Done!')
             os.chdir('../../../')
             print('Download Complete!')
 
@@ -159,18 +148,16 @@ class Manga :
 
                 if(getFeature[6] != 'featured.html'):
                     Image = _Image.html.find('#viewer img', first=True).attrs['src']
-                    Download = HTMLSession().get(Image)
                     Filename = getPage.find('option', first=True).text
 
-                    with open(Filename + '.jpg', 'wb') as x:
-                        x.write(Download.content)
-                        x.close()
+                    self.Download(Image, Filename, '.jpg')
                 else:
                     break
 
             os.chdir('../../../../')
-            print('Downloaded!')
+            print('\n\nDownloaded!')
             print('Download Complete!')
+
         else:
             Request = HTMLSession().get(Url)
             Title = Request.html.find('.title-top', first=True).text
@@ -196,17 +183,14 @@ class Manga :
 
                     if(getFeature[6] != 'featured.html'):
                         Image = _Image.html.find('#viewer img', first=True).attrs['src']
-                        Download = HTMLSession().get(Image)
                         Filename = getPage.find('option', first=True).text
 
-                        with open(Filename + '.jpg', 'wb') as x:
-                            x.write(Download.content)
-                            x.close()
+                        self.Download(Image, Filename, '.jpg')
                     else:
                         break
 
                 os.chdir('..')
-                print('Downloaded!')
+                print('\n\nDownloaded!')
 
             os.chdir('../../../')
             print('Download Complete!')
@@ -214,6 +198,31 @@ class Manga :
     def MangaHere(self, Url):
         temp = Url.replace('mangahere.cc', 'mangatown.com')
         self.MangaTown(temp)
+
+    def Url(self, _Url):
+        temp = _Url.split('/', 4)
+
+        if temp[2] == 'www.mangapanda.com':
+            self.MangaPanda(_Url)
+        elif temp[2] == 'www.mangareader.net':
+            self.MangaReader(_Url)
+        elif temp[2] == 'www.mangatown.com':
+            self.MangaTown(_Url)
+        elif temp[2] == 'www.mangahere.cc':
+            self.MangaHere(_Url)
+
+    def Download(self, Url, Filename, Extension):
+        Download = requests.get(Url, stream=True)
+        Size = int(Download.headers['content-length'])
+
+        print('\nDownload Page No: ', Filename, ' ----> Downloading!')
+
+        with open(Filename + Extension, 'wb') as x:
+            for data in tqdm(iterable=Download.iter_content(chunk_size=1024), total=int(Download.headers['content-length'])/1024, unit="KB"):
+                x.write(data)
+
+            x.close()
+        print('Download Page No: ', Filename, ' ----> Downloaded!')
 
     def CheckTitle(self, Title):
         isTitleExist = os.path.isdir('Download/Manga/' + Title)
@@ -237,9 +246,3 @@ class Manga :
             os.makedirs(str(Chapter))
             os.chdir(str(Chapter))
             print('Creating Directory Name of', Chapter)
-
-# http://www.mangatown.com/manga/naka_no_hito_genome_jikkyouchuu/c028.5/
-# https://www.mangatown.com/manga/that_girl_is_not_just_cute
-# http://www.mangahere.cc/manga/naka_no_hito_genome_jikkyouchuu/
-# https://www.mangapanda.com/that-girl-is-not-just-cute
-# https://www.mangareader.net/that-girl-is-not-just-cute

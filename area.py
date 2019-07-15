@@ -4,103 +4,55 @@ import manga
 import doujin
 
 class Area:
-    MangaDictionary = ['www.mangareader.net', 'www.mangapanda.com', 'www.mangahere.cc', 'www.mangatown.com']
-    DoujinDictionary = ['nhentai.net', 'pururin.io']
-    # Manga Area
-    def MangaArea(self):
-        x = manga.Manga()
+    # Help Area
+    def HelpArea(self):
+        Nav = ''
 
+        for x in range(0, 60):
+            Nav = Nav + '-'
+
+        print(Nav)
+        print('Hacker-chan Help Guide')
+        print(Nav)
+        print('\n\tManga -----> Manga <URL> Ex. Manga https://manga.com/my-manga-title || https://manga.com/my-manga-title/chapter-1/')
+        print('\tDoujin -----> Doujin <URL> Ex. Doujin https://manga.com/my-doujin-title')
+        print('\tExit -----> Terminate the Program\n\n')
+
+        print(Nav)
+        print('Web can Allowed to Download')
+        print(Nav)
+
+        
+        
+        os.system('pause')
         os.system('cls')
+        
+        print('Console Application Version Alpha 5')
+        print('Hacker-chan\n')
+        print('Type "help" for more info\n\n')
 
-        print('Hacker-chan Manga')
-        print('[1 -> Search URL] || [2 -> List] || [0 -> Back]')
-        Say = int(input('Say >> '))
+        self.MenuArea()
 
-        if Say == 1:
-            URL = input('\n\nManga URL : ')
-            
-            temp = URL.split('/', 3)
-            #MangaReader
-            if temp[2] == self.MangaDictionary[0]:
-                x.MangaReader(URL)
-                self.MangaArea()
-            #MangaPanda 
-            elif temp[2] == self.MangaDictionary[1]:
-                x.MangaPanda(URL)
-                self.MangaArea()
-            #MangaHere
-            elif temp[2] == self.MangaDictionary[2]:
-                x.MangaHere(URL)
-                self.MangaArea()
-            #MangaTown 
-            elif temp[2] == self.MangaDictionary[3]:
-                x.MangaTown(URL)
-                self.MangaArea()
-            
-            elif URL == 'exit()':
-                self.MenuArea()
-            elif int(URL) == 0:
-                self.MangaArea()
-            else:
-                print('Error >> Not Available for Web Scraping!')
-                self.MangaArea()
-
-        elif Say == 0:
-            self.MenuArea()
-        else:
-            self.MangaArea()
-    # End of Manga Area
-    # Doujin Area
-    def DoujinArea(self):
-        x = doujin.Doujin()
-
-        os.system('cls')
-
-        print('Hacker-chan Doujin\n')
-        print('[1 -> Search URL] || [2 -> List] || [0 -> Back]')
-        Say = int(input('Say >> '))
-
-        if Say == 1:
-            URL = input('\n\nDoujin URL : ')
-
-            temp = URL.split('/', 3)
-            
-            #nHentai
-            if temp[2] == self.DoujinDictionary[0]:
-                x.nHentai(URL)
-                self.DoujinArea()
-            #Pururin
-            if temp[2] == self.DoujinDictionary[1]:
-                x.Pururin(URL)
-                self.DoujinArea()
-            elif URL == 'exit()':
-                self.MenuArea()
-            elif int(URL) == 0:
-                self.DoujinArea()
-            else:
-                print('Error >> Not Available for Web Scraping!')
-                self.DoujinArea()
-        elif Say == 0:
-            self.MenuArea()
-        else:
-            self.MangaArea()
-    #End of Doujin Area
+    # End of Help Area
     # Menu Area
     def MenuArea(self):
-        os.system('cls')
-        print('Console Application Version Alpha 3')
-        print('Hacker-chan Menu\n')
-        print('[1 -> Search URL] || [2 -> Manga] || [3 -> Doujin] || [0 -> Exit]')
-        Say = int(input('Say >> '))
+        Say = input('\n\nConsole >> ').lower().split(' ')
 
-        if Say == 0:
-            print('Bye')
-        elif Say == 2:
-            self.MangaArea()
-        elif Say == 3:
-            self.DoujinArea()
+        if Say[0] == 'manga':
+            x = manga.Manga()
+            x.Url(Say[1])
+
+            self.MenuArea()
+        elif Say[0] == 'doujin':
+            x = doujin.Doujin()
+            x.Url(Say[1])
+
+            self.MenuArea()
+        elif Say[0] == 'help':
+            os.system('cls')
+
+            self.HelpArea()
+        elif Say[0] == 'exit':
+            pass
         else:
-            self.MenuArea() 
-    # End of Menu Area
-        
-            
+            self.MenuArea()

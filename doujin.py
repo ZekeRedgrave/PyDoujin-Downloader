@@ -3,6 +3,8 @@ import sys
 import io
 import requests
 import json
+
+from tqdm import tqdm
 from requests_html import HTMLSession
 
 
@@ -20,17 +22,13 @@ class Doujin:
 		for getPage in Page:
 			_Image = HTMLSession().get('https://nhentai.net' + getPage.find('div a', first=True).attrs['href'])
 			Image = _Image.html.find('#image-container img', first=True).attrs['src']
-
-			Download = HTMLSession().get(Image)
 			getFilename = Image.split('/', 5)
 
-			with open(getFilename[5], 'wb') as x:
-				x.write(Download.content)
-				x.close()
+			self.Download(Image, getFilename[5], '')
 
 		os.chdir('../../../../')
 
-		print('Download Done!')
+		print('\n\nDownload Done!')
 		print('Download Complete!')
 
 	def Pururin(self, Url):
@@ -47,16 +45,37 @@ class Doujin:
 		print('Downloading Doujin Name of', Title, '-', getUrl_Data[4])
 
 		for getPage in range(1, int(getJSON['total_pages']) + 1):
-			Download = HTMLSession().get('https://cdn.pururin.io/assets/images/data/' + getUrl_Data[4] + '/' + str(getPage) + '.' + getJSON['image_extension'])
-
-			with open(str(getPage) + '.' + getJSON['image_extension'], 'wb') as x:
-				x.write(Download.content)
-				x.close()
+			self.Download('https://cdn.pururin.io/assets/images/data/' + getUrl_Data[4] + '/' + str(getPage) + '.' + getJSON['image_extension'], str(getPage), '.' + getJSON['image_extension'])
 
 		os.chdir('../../../../')
 
-		print('Download Done!')
+		print('\n\nDownload Done!')
 		print('Download Complete!')
+
+	def Tsumino(self, Url):
+		Request = HTMLSession().get(Url)
+	
+	def Url(self, _Url):
+		temp = _Url.split('/', 4)
+
+		if temp[2] == 'nhentai.net':
+			self.nHentai(_Url)
+		elif temp[2] == 'pururin.io':
+			self.Pururin(_Url)
+		# if temp[2] == 'tsumino.com':
+		# 	self.Tsumino(_Url)
+
+	def Download(self, Url, Filename, Extension):
+		Download = requests.get(Url, stream=True)
+
+		print('\nDownload Page No: ', Filename, ' ----> Downloading!')
+
+		with open(Filename + Extension, 'wb') as x:
+			for data in tqdm(iterable=Download.iter_content(chunk_size=1024), total=int(Download.headers['content-length'])/1024, unit="KB"):
+				x.write(data)
+			x.close()
+
+		print('Download Page No: ', Filename, ' ----> Downloaded!')
 
 	def CheckTitle(self, Title, Source):
 		isTitleExist = os.path.isdir('Download/Doujin/' + Source + '/' + Title)
@@ -68,6 +87,3 @@ class Doujin:
 			os.makedirs('Download/Doujin/' + Source + '/' + Title)
 			os.chdir('Download/Doujin/' + Source + '/' + Title)
 			print('Creating Directory Name of', Title)
-
-# https://nhentai.net
-# https://pururin.io/gallery/39617/fgo-no-ashibon-5
