@@ -11,6 +11,7 @@
 - Follow the Menu 
 - To Paste the URL, Click Right Click and Press "Paste" then Enter
 - Type "help" for Info
+- If you want to get your Manga or Doujin, Go Download Folder is inside of Main Dir
 
 # How to use this? (Developer Only)
 
