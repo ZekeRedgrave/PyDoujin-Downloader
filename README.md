@@ -6,7 +6,7 @@
 
 # How to use this? 
 
-- Download The Standalone File https://mega.nz/#!gXoHAbLA!p2tBsUOeMjWQTUPvnn_A4QC64fwjksXLGSlA_YUcD8Y - For Windows 8 and 10 only
+- Download The Standalone File https://mega.nz/#!gXoHAbLA!p2tBsUOeMjWQTUPvnn_A4QC64fwjksXLGSlA_YUcD8Y (Out Dated) - For Windows 8 and 10 only
 - To Paste the URL, Click Right Click and Press "Paste" then Click Download Button
 - Download Files Found on Download Folder
 
