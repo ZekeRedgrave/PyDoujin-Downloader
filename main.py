@@ -22,109 +22,172 @@ import sip
 class MainArea(QWidget):
 	def __init__(self):
 		QWidget.__init__(self)
-		self.Main_Urlbox = QLineEdit()
-		Main_UrlButton = QPushButton("Download")
-		Main_UrlButton.clicked.connect(self.Main_UrlButton)
 
-		Group1 = QHBoxLayout()
-		Group1.addWidget(self.Main_Urlbox)
-		Group1.addWidget(Main_UrlButton)
+		self.Navigation_Urlbox = QLineEdit()
+		Navigation_UrlButton = QPushButton("Go!")
+		Navigation_UrlButton.clicked.connect(self.Navigation_UrlButton)
 
-		self.Main_Infobox = QTextEdit()
-		self.Main_Infobox.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-		self.Main_Infobox.setReadOnly(True)
-		# -----------------------------------------------------------------
-		# ----- Preparing -------------------------------------------------
-		# -----------------------------------------------------------------
-		self.Loading = LoadingThread()
-		self.Loading.loadingDot.connect(self.Main_LoadingRun)
+		NavigationLayout = QHBoxLayout()
+		NavigationLayout.addWidget(QLabel("Url"))
+		NavigationLayout.addWidget(self.Navigation_Urlbox)
+		NavigationLayout.addWidget(Navigation_UrlButton)
 
-		QMessageBox().warning(self, "Warning", "This App Version is Unstable!\nAny Error of this App, Please Report to the Official Developers Only!")
+		self.StatusLabel = QLabel()
+
+		self.LoadLayout = QVBoxLayout()
+
+		self.LoadWidget = QWidget()
+		self.LoadWidget.setLayout(self.LoadLayout)
+
+		TempLayout = QVBoxLayout()
+		TempLayout.addWidget(self.LoadWidget)
+		TempLayout.setContentsMargins(0, 0, 0, 0)
+		TempLayout.setSpacing(0)
+		TempLayout.addItem(QSpacerItem(0, 150, QSizePolicy.Minimum, QSizePolicy.Expanding))
+
+		TempWidget = QWidget()
+		TempWidget.setLayout(TempLayout)
+
+		self.Load_ScrollArea = QScrollArea()
+		self.Load_ScrollArea.setWidgetResizable(True)
+		self.Load_ScrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+		self.Load_ScrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+		self.Load_ScrollArea.setWidget(TempWidget)
 
 		MainLayout = QVBoxLayout()
-		# MainLayout.setSpacing(0)
-		# MainLayout.setContentsMargins(0,0,0,0)
-		MainLayout.addWidget(QLabel("Url"))
-		MainLayout.addLayout(Group1)
-		MainLayout.addWidget(self.Main_Infobox)
+		MainLayout.addLayout(NavigationLayout)
+		MainLayout.addWidget(self.Load_ScrollArea)
+		MainLayout.addWidget(self.StatusLabel)
+		# -----------------------------------------------------------------------
+		# ----- Preparing -------------------------------------------------------
+		# -----------------------------------------------------------------------
+
+		# http://www.mangapanda.com/tanaka-kun-wa-itsumo-kedaruge/19
+		self.Count = 0
 
 		self.setLayout(MainLayout)
 
-	def Main_UrlButton(self):
-		if self.Main_Urlbox.text() != "":
-			self.Main_Infobox.insertPlainText('Searching for ' +self.Main_Urlbox.text()+ '\nFetching Some Data ')
+	def DynamicUi(self, titleText="", statusText=""):
+		DynamicUi_TitleLabel = QLabel(titleText)
+		DynamicUi_TitleLabel.setObjectName("DynamicUi_TitleID" + str(self.Count))
+		DynamicUi_StatusLabel = QLabel(statusText)
+		DynamicUi_StatusLabel.setObjectName("DynamicUi_StatusID" + str(self.Count))
 
-			self.x = Main_UrlThread(self.Main_Urlbox.text())
-			self.x.info.connect(self.Main_UrlRun)
-			self.x.error.connect(self.Main_ErrorRun)
+		DynamicUi_Layout = QVBoxLayout()
+		DynamicUi_Layout.addWidget(DynamicUi_TitleLabel)
+		DynamicUi_Layout.addWidget(DynamicUi_StatusLabel)
 
+		DynamicUi_Widget = QWidget()
+		DynamicUi_Widget.setLayout(DynamicUi_Layout)
+
+		return DynamicUi_Widget
+
+	def Navigation_UrlButton(self):
+		if self.Navigation_Urlbox.text() != "":
+			self.x = UrlThread(self.Navigation_Urlbox.text(), self.Count)
+			self.x.status.connect(self.Navigation_UrlStatus)
+			self.x.finished.connect(self.Navigation_UrlFinished)
+			self.x.error.connect(self.Navigation_UrlError)
 			self.x.start()
-			self.Loading.start()
 
-			self.Main_Urlbox.setText('')
+			self.Navigation_Urlbox.setText("")
 
-	def Main_UrlRun(self, x):
-		self.Main_Infobox.insertPlainText(x)
-		self.Loading.terminate()
-		self.Main_Infobox.moveCursor(QTextCursor.End)
+		else:
+			QMessageBox.warning(self, "Error", "Empty!")
 
-	def Main_LoadingRun(self, x):
-		self.Main_Infobox.insertPlainText(x)
+	def Navigation_UrlStatus(self, x):
+		self.StatusLabel.setText(x)
 
-	def Main_ErrorRun(self, Error, DisplayError):
-		if Error is True:
-			QMessageBox().warning(self, "Error", DisplayError)
-			self.Loading.terminate()
-			self.Main_Infobox.moveCursor(QTextCursor.End)
+	def Navigation_UrlError(self, x, y):
+		if x is True:
+			QMessageBox().error(self, "Error", y)
 
+	def Navigation_UrlFinished(self, x, y, z):
+		self.StatusLabel.setText("")
+		self.LoadLayout.addWidget(self.DynamicUi(titleText=y["Title"]))
+		self.Load_ScrollArea.verticalScrollBar().setValue(self.Load_ScrollArea.verticalScrollBar().maximum())
 
-class Main_UrlThread(QThread):
-	info = pyqtSignal(str)
-	finished = pyqtSignal()
+		self.Count += 1
+
+		self.Thread = DownloadThread(y, z)
+		self.Thread.status.connect(self.Download_DynamicStatus)
+		self.Thread.finished.connect(self.Download_DynamicFinished)
+		self.Thread.error.connect(self.Download_DynamicError)
+
+		self.Object = DownloadObject()
+		self.Object.moveToThread(self.Thread)
+		self.Object.finished.connect(self.Thread.quit)
+
+		self.Thread.start()
+
+	def Download_DynamicStatus(self, x, y):
+		getStatus = self.LoadWidget.findChild(QLabel, "DynamicUi_StatusID" + str(y))
+		getStatus.setText(x)
+		
+	def Download_DynamicError(self, x, y):
+		pass
+
+	def Download_DynamicFinished(self, x):
+		pass
+
+class UrlThread(QThread):
+	finished = pyqtSignal(bool, dict, int)
 	error = pyqtSignal(bool, str)
+	status = pyqtSignal(str)
 
-	def __init__(self, url):
+	def __init__(self, x, y):
 		QThread.__init__(self)
 
-		self.getUrl = url
+		self.getUrl = x
+		self.getID = y
 
 	def run(self):
-		splitUrl = self.getUrl.replace('www.', '').split('/', 25)
-		Count = 0
+		getPlugins = self.getUrl.split("/")[2].split(".")[1] if len(self.getUrl.split("/")[2].split(".")) == 3 else self.getUrl.split("/")[2].split(".")[0]
 
-		if os.path.isfile('plugins/' +os.path.splitext(splitUrl[2])[0]+ '.py') is True:
-			getImport = importlib.import_module('.' +os.path.splitext(splitUrl[2])[0], package='plugins')
-			getFunction = getattr(getImport, os.path.splitext(splitUrl[2])[0])
+		if os.path.isfile("plugins/" +getPlugins+ ".py") is True:
+			self.status.emit("Fetching Data Information from [ " +self.getUrl+ " ]")
+
+			getImport = importlib.import_module('.' +getPlugins, package='plugins')
+			getFunction = getattr(getImport, getPlugins)
 			getDictionary = getFunction.load(self, getUrl=self.getUrl)
 
 			importlib.reload(getImport)
-			
-			self.info.emit('\n\nSources:\n' +str(getDictionary['Page']))
-			self.info.emit('\n\nStart Downloading\n\n')
 
-			for x in range(len(getDictionary['Page'])):
-				with concurrent.futures.ThreadPoolExecutor() as Exe:
-					self.info.emit(getDictionary['Title'] +" "+ self.LeadingZeros_Format(Count, len(str(len(getDictionary['Page'])))) +os.path.splitext(getDictionary['Page'][x])[1]+ " - Downloading\n")
-
-					_Exe = Exe.submit(self.Download, getDictionary['Page'][x], getDictionary['Title'], getDictionary['Title'] +" "+ self.LeadingZeros_Format(Count, len(str(len(getDictionary['Page'])))) +os.path.splitext(getDictionary['Page'][x])[1])
-					_Exe.result()
-
-					self.info.emit(getDictionary['Title'] +" "+ self.LeadingZeros_Format(Count, len(str(len(getDictionary['Page'])))) +os.path.splitext(getDictionary['Page'][x])[1]+ " - Downloaded\n")
-
-				Count += 1
-
-			self.info.emit('\nDownload Complete!\n\n')
+			self.finished.emit(True, getDictionary, self.getID)
 
 		else:
-			self.error.emit(True, "There is no Plugins Name ["+os.path.splitext(splitUrl[2])[0]+ ".py] Exist!")
+			self.error.emit(True, "There is no Plugins Name [" +getPlugins+  ".py] Exist!")
 
-	def LeadingZeros_Format(self, num, size):
-		s = str(num) + ""
+class DownloadObject(QObject):
+	finished = pyqtSignal()
 
-		while len(s) < size:
-			s = "0" + s
+	def __init__(self):
+		QObject.__init__(self)
 
-		return s
+	def run(self):
+		pass
+
+class DownloadThread(QThread):
+	finished = pyqtSignal(bool)
+	error = pyqtSignal(bool, str)
+	status = pyqtSignal(str, int)
+
+	def __init__(self, x, y):
+		QThread.__init__(self)
+
+		self.Dictionary = x
+		self.getID = y
+
+	def run(self):
+		for x in range(len(self.Dictionary['Page'])):
+			self.status.emit("Download " +str(x)+ " of " +str(len(self.Dictionary['Page'])), self.getID)
+
+			with concurrent.futures.ThreadPoolExecutor() as Exe:
+				_Exe = Exe.submit(self.Download, self.Dictionary['Page'][x], self.Dictionary['Title'], self.Dictionary['Title'] +" "+ self.LeadingZeros_Format(x, len(str(len(self.Dictionary['Page'])))) +os.path.splitext(self.Dictionary['Page'][x])[1])
+				_Exe.result()
+
+		self.status.emit("Finished!", self.getID)
+		self.finished.emit(True)
 
 	def Download(self, http, title, filename):
 		if os.path.isdir("download/" + title) is True:
@@ -143,23 +206,18 @@ class Main_UrlThread(QThread):
 				for data in tqdm.tqdm(iterable=r.iter_content(chunk_size=1024), total=int(r.headers['content-length']) / 1024, unit="KB"):
 					writeFile.write(data)
 
+	def LeadingZeros_Format(self, num, size):
+		s = str(num) + ""
 
-class LoadingThread(QThread):
-	loadingDot = pyqtSignal(str)
+		while len(s) < size:
+			s = "0" + s
 
-	def run(self):
-		while True:
-
-			time.sleep(1)
-
-			self.loadingDot.emit('.')
+		return s
 
 if __name__ == '__main__':
 	App = QApplication(sys.argv)
 
 	Config = MainArea()
-	# Config.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
-	# Config.setAttribute(Qt.WA_TranslucentBackground)
 	Config.resize(1000, 500)
 	Config.setWindowTitle("Hacker-chan Version Alpha 1.1_01")
 	Config.show()
