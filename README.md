@@ -14,7 +14,7 @@
 
 - Download Python and Install
 - Go to in Terminal for Linux and Mac or CMD for Windows
-- Install All Python Library (requests_html, PyQt5, tqdm, and etc)
+- Install All Python Library (requests_html, PyQt5, tqdm, selenium, bs4)
 
 # Warning
 
