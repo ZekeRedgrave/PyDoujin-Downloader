@@ -412,5 +412,3 @@ if __name__ == '__main__':
 	Config.show()
 
 	App.exec_()
-
-	# https://www.mangapanda.com/tanaka-kun-wa-itsumo-kedaruge/26
