@@ -1,7 +1,6 @@
 from PyQt5 import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
-from PyQt5.QtGui import * 
 
 from importlib import *
 from PIL import Image
@@ -9,15 +8,14 @@ from PIL import Image
 import tqdm
 import requests
 import os
-import io
 import sys
 import json
 import concurrent.futures
-import threading
 import importlib
-import time
-import sip
-import re
+
+import requests_html
+import bs4
+import selenium
 
 class MainArea(QWidget):
 	def __init__(self):
@@ -229,8 +227,7 @@ class UrlThread(QThread):
 				importlib.reload(importlib.import_module('.' +getPlugins, package='plugins'))
 				# Calling External Python Script
 				getImport = importlib.import_module('.' +getPlugins, package='plugins')
-				getFunction = getattr(getImport, getPlugins)
-				getDictionary = getFunction.load(self, getUrl=self.getUrl)
+				getDictionary = getImport.load(getUrl=self.getUrl)
 
 				if self.CheckKeys(getDictionary) is True:
 					self.finished.emit(True, getDictionary, self.getID)

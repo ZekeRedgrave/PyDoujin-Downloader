@@ -8,36 +8,32 @@ Warning: This Script is really buggy sometimes
 Author: Zeke Redgrave
 '''
 from requests_html import HTMLSession
-from tqdm import tqdm
 
-import os
-import io
-import json
 import requests
 
-class manganelo:
-	def load(self, getUrl=''):
-		temp = {
-			"Title": "",
-			"Page": [],
-			"Size" : []
-		}
-		r = HTMLSession().get(getUrl)
+def load(self, getUrl=''):
+	temp = {
+		"Title": "",
+		"Page": [],
+		"Size" : []
+	}
 
-		temp["Title"] = r.html.find("title", first=True).text.split('-')[0][:len(r.html.find("title", first=True).text.split('-')[0]) - 1]
-		findPage = r.html.find(".container-chapter-reader", first=True)
+	r = HTMLSession().get(getUrl)
 
-		for getPage in findPage.find("img"):
-			_r = requests.get(getPage.attrs['src'], stream=True)
+	temp["Title"] = r.html.find("title", first=True).text.split('-')[0][:len(r.html.find("title", first=True).text.split('-')[0]) - 1]
+	findPage = r.html.find(".container-chapter-reader", first=True)
 
-			temp["Page"].append(getPage.attrs['src'])
+	for getPage in findPage.find("img"):
+		_r = requests.get(getPage.attrs['src'], stream=True)
 
-			try:
-				temp["Size"].append(_r.headers['content-length'])
+		temp["Page"].append(getPage.attrs['src'])
 
-			except Exception as e:
-				for x in _r.headers:
-					if str.lower(x) is "content-length":
-						temp["Size"].append(_r.headers[x])
+		try:
+			temp["Size"].append(_r.headers['content-length'])
 
-		return temp
+		except Exception as e:
+			for x in _r.headers:
+				if str.lower(x) is "content-length":
+					temp["Size"].append(_r.headers[x])
+
+	return temp

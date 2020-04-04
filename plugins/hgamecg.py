@@ -18,17 +18,15 @@ def load(getUrl=''):
 		"Page" : [],
 		"Size" : []
 	}
-	thread = []
+	Thread = []
 
 	r = HTMLSession().get(str(getUrl))
+	temp["Title"] = r.html.find(".navbar h1", first=True).text
 
-	temp["Title"] = r.html.find('#mangainfo .c3 h1', first=True).text
-	findPage = r.html.find('#selectpage select', first=True)
+	for x in range(1, int(r.html.find(".content a", first=True).attrs["href"].split("/")[2].split("-")[6].split(".")[0]) + 1):
+		Thread.append(concurrent.futures.ThreadPoolExecutor().submit(getImage, getUrl +"image-hgamecg-" +LeadingZeros_Format(x, 4)+ "-id-" +str(x)+ "-pics-" +str(r.html.find(".content a", first=True).attrs["href"].split("/")[2].split("-")[6].split(".")[0])+ ".html"))
 
-	for getPage in findPage.find('option'):
-		thread.append(concurrent.futures.ThreadPoolExecutor().submit(getImage, getPage.attrs['value']))
-
-	for x in concurrent.futures.as_completed(thread):
+	for x in concurrent.futures.as_completed(Thread):
 		y = x.result()
 
 		temp["Page"].append(y["Page"])
@@ -36,18 +34,18 @@ def load(getUrl=''):
 
 	return temp
 
-def getImage(url):
+def getImage(url=''):
 	try:
-		r = HTMLSession().get('http://www.mangapanda.com' +url)
+		r = HTMLSession().get(str(url))
 
 		return {
-			"Page" : r.html.find('#imgholder img', first=True).attrs['src'],
-			"Size" : requests.get(r.html.find('#imgholder img', first=True).attrs['src'], stream=True).headers['content-length']
+			"Page" : r.html.find("img", first=True).attrs["src"],
+			"Size" : requests.get(r.html.find("img", first=True).attrs["src"], stream=True).headers["content-length"]
 		}
 
 	except Exception as e:
-		r = HTMLSession().get('http://www.mangapanda.com' +url)
-		_r = requests.get(r.html.find('#imgholder img', first=True).attrs['src'], stream=True)
+		r = HTMLSession().get(str(url))
+		_r = requests.get(r.html.find("img", first=True).attrs["src"], stream=True)
 
 		for x in _r.headers:
 			if str.lower(x) is "content-length":
@@ -55,3 +53,11 @@ def getImage(url):
 					"Page" : r.html.find('#imgholder img', first=True).attrs['src'],
 					"Size" : _r.headers[x]
 				}
+
+def LeadingZeros_Format(num, size):
+	s = str(num) + ""
+
+	while len(s) < size:
+		s = "0" + s
+
+	return s

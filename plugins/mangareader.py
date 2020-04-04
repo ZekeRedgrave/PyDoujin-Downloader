@@ -8,37 +8,50 @@ Warning: This Script is really buggy sometimes
 Author: Zeke Redgrave
 '''
 from requests_html import HTMLSession
-from tqdm import tqdm
 
-import os
-import io
-import json
 import requests
+import concurrent.futures
 
-class mangareader:
-	def load(self, getUrl=''):
-		temp = {
-			"Title" : "",
-			"Page" : [],
-			"Size" : []
+def load(self, getUrl=''):
+	temp = {
+		"Title" : "",
+		"Page" : [],
+		"Size" : []
+	}
+	thread = []
+
+	r = HTMLSession().get(str(getUrl))
+
+	temp["Title"] = r.html.find('#mangainfo .c3 h1', first=True).text
+	findPage = r.html.find('#selectpage select', first=True)
+
+	for getPage in findPage.find('option'):
+		thread.append(concurrent.futures.ThreadPoolExecutor().submit(getImage, getPage.attrs['value']))
+
+	for x in concurrent.futures.as_completed(thread):
+		y = x.result()
+
+		temp["Page"].append(y["Page"])
+		temp["Size"].append(y["Size"])
+
+	return temp
+
+def getImage(url):
+	try:
+		r = HTMLSession().get('http://www.mangareader.net' +url)
+
+		return {
+			"Page" : r.html.find('#imgholder img', first=True).attrs['src'],
+			"Size" : requests.get(r.html.find('#imgholder img', first=True).attrs['src'], stream=True).headers['content-length']
 		}
-		r = HTMLSession().get(str(getUrl))
 
-		temp["Title"] = r.html.find('#mangainfo .c3 h1', first=True).text
-		findPage = r.html.find('#selectpage select', first=True)
+	except Exception as e:
+		r = HTMLSession().get('http://www.mangareader.net' +url)
+		_r = requests.get(r.html.find('#imgholder img', first=True).attrs['src'], stream=True)
 
-		for getPage in findPage.find('option'):
-			r = HTMLSession().get('http://www.mangareader.net' +getPage.attrs['value'])
-			_r = requests.get(r.html.find('#imgholder img', first=True).attrs['src'], stream=True)
-
-			temp["Page"].append(r.html.find('#imgholder img', first=True).attrs['src'])
-
-			try:
-				temp["Size"].append(_r.headers['content-length'])
-
-			except Exception as e:
-				for x in _r.headers:
-					if str.lower(x) is "content-length":
-						temp["Size"].append(_r.headers[x])
-
-		return temp
+		for x in _r.headers:
+			if str.lower(x) is "content-length":
+				return {
+					"Page" : r.html.find('#imgholder img', first=True).attrs['src'],
+					"Size" : _r.headers[x]
+				}

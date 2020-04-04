@@ -8,37 +8,32 @@ Warning: This Script is really buggy sometimes
 Author: Zeke Redgrave
 '''
 from requests_html import HTMLSession
-from tqdm import tqdm
 
-import os
-import io
-import json
 import requests
 
-class mangafox:
-	def load(self, getUrl=''):
-		temp = {
-			"Title": "",
-			"Page": [],
-			"Size" : []
-		}
+def load( getUrl=''):
+	temp = {
+		"Title": "",
+		"Page": [],
+		"Size" : []
+	}
 
-		r = HTMLSession().get(getUrl)
+	r = HTMLSession().get(getUrl)
 
-		temp["Title"] = r.html.find("title", first=True).text.replace(' Chapter', '')
-		findPage = r.html.find(".list_img", first=True)
+	temp["Title"] = r.html.find("title", first=True).text.replace(' Chapter', '')
+	findPage = r.html.find(".list_img", first=True)
 
-		for getPage in findPage.find("img"):
-			_r = requests.get(getPage.attrs['src'], stream=True)
+	for getPage in findPage.find("img"):
+		_r = requests.get(getPage.attrs['src'], stream=True)
 
-			temp["Page"].append(getPage.attrs['src'])
+		temp["Page"].append(getPage.attrs['src'])
 
-			try:
-				temp["Size"].append(_r.headers['content-length'])
+		try:
+			temp["Size"].append(_r.headers['content-length'])
 
-			except Exception as e:
-				for x in _r.headers:
-					if str.lower(x) is "content-length":
-						temp["Size"].append(_r.headers[x])
+		except Exception as e:
+			for x in _r.headers:
+				if str.lower(x) is "content-length":
+					temp["Size"].append(_r.headers[x])
 
-		return temp
+	return temp
