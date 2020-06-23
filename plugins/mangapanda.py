@@ -7,51 +7,29 @@ Warning: This Script is really buggy sometimes
 
 Author: Zeke Redgrave
 '''
-from requests_html import HTMLSession
-
 import requests
 import concurrent.futures
+import bs4
 
 def load(getUrl=''):
 	temp = {
 		"Title" : "",
-		"Page" : [],
+		"Code": getUrl.split("/")[3],
+		"Tag": [],
+		"Author/Artist": "",
+		"Cover": "",
+		"Src" : [],
 		"Size" : []
 	}
-	thread = []
+	getRaw = bs4.BeautifulSoup(requests.get("https://www.mangapanda.com/"+ getUrl.split("/")[3]).content, features="lxml")
+	
+	temp["Title"] = getRaw.find("table").find_all("tr")[0].find_all("td")[1].getText().replace("\n", "") + " " +str(getUrl.split("/")[4])
+	temp["Tag"] = getRaw.find("table").find_all("tr")[7].find_all("td")[1].getText().replace("\n", " ").split(" ")
+	temp["Author/Artist"] = getRaw.find("table").find_all("tr")[4].find_all("td")[1].getText().replace("\n", "") +"/"+ getRaw.find("table").find_all("tr")[5].find_all("td")[1].getText().replace("\n", "")
+	temp["Cover"] = getRaw.find("div", {"id": "mangaimg"}).find("img").get("src")
 
-	r = HTMLSession().get(str(getUrl))
-
-	temp["Title"] = r.html.find('#mangainfo .c3 h1', first=True).text
-	findPage = r.html.find('#selectpage select', first=True)
-
-	for getPage in findPage.find('option'):
-		thread.append(concurrent.futures.ThreadPoolExecutor().submit(getImage, getPage.attrs['value']))
-
-	for x in concurrent.futures.as_completed(thread):
-		y = x.result()
-
-		temp["Page"].append(y["Page"])
-		temp["Size"].append(y["Size"])
+	for x in bs4.BeautifulSoup(requests.get(getUrl).content, features="lxml").find("select", {"id":"pageMenu"}).find_all("option"):
+		temp["Src"].append(bs4.BeautifulSoup(requests.get("https://www.mangapanda.com"+ x.get("value")).content, features="lxml").find("img", {"id":"img"}).get("src"))
+		temp["Size"].append(requests.get(bs4.BeautifulSoup(requests.get("https://www.mangapanda.com"+ x.get("value")).content, features="lxml").find("img", {"id":"img"}).get("src"), stream=True).headers["content-length"])
 
 	return temp
-
-def getImage(url):
-	try:
-		r = HTMLSession().get('http://www.mangapanda.com' +url)
-
-		return {
-			"Page" : r.html.find('#imgholder img', first=True).attrs['src'],
-			"Size" : requests.get(r.html.find('#imgholder img', first=True).attrs['src'], stream=True).headers['content-length']
-		}
-
-	except Exception as e:
-		r = HTMLSession().get('http://www.mangapanda.com' +url)
-		_r = requests.get(r.html.find('#imgholder img', first=True).attrs['src'], stream=True)
-
-		for x in _r.headers:
-			if str.lower(x) is "content-length":
-				return {
-					"Page" : r.html.find('#imgholder img', first=True).attrs['src'],
-					"Size" : _r.headers[x]
-				}
