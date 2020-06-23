@@ -1,396 +1,363 @@
 from PyQt5 import *
 from PyQt5.QtWidgets import *
+from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 
-from importlib import *
-from PIL import Image
-
-import tqdm
 import requests
 import os
 import sys
 import json
 import concurrent.futures
 import importlib
+import sqlite3
+import datetime
+import functools
 
-import requests_html
+import tqdm
 import bs4
 import selenium
 
-class MainArea(QWidget):
+class MainWidget(QWidget):
 	def __init__(self):
 		QWidget.__init__(self)
+		# -----------------------------------------------------------------------
+		# ----- Main ------------------------------------------------------------
+		# -----------------------------------------------------------------------
+		self.MainNavigation_Downloadbox = QLineEdit()
+		MainNavigation_DownloadButton = QPushButton("Download")
+		MainNavigation_DownloadButton.clicked.connect(self.DownloadButton)
+		MainNavigation_SettingButton = QPushButton("Setting")
 
-		self.Navigation_Urlbox = QLineEdit()
-		self._Navigation_UrlButton = QPushButton("Go!")
-		self._Navigation_UrlButton.clicked.connect(self.Navigation_UrlButton)
+		MainNavigation_Layout = QHBoxLayout()
+		MainNavigation_Layout.addWidget(self.MainNavigation_Downloadbox)
+		MainNavigation_Layout.addWidget(MainNavigation_DownloadButton)
+		MainNavigation_Layout.addWidget(MainNavigation_SettingButton)
 
-		NavigationLayout = QHBoxLayout()
-		NavigationLayout.addWidget(QLabel("Url"))
-		NavigationLayout.addWidget(self.Navigation_Urlbox)
-		NavigationLayout.addWidget(self._Navigation_UrlButton)
-
-		self.StatusLabel = QLabel()
-
-		self.LoadLayout = QVBoxLayout()
-
-		self.LoadWidget = QWidget()
-		self.LoadWidget.setLayout(self.LoadLayout)
-
-		TempLayout = QVBoxLayout()
-		TempLayout.addWidget(self.LoadWidget)
-		TempLayout.setContentsMargins(0, 0, 0, 0)
-		TempLayout.setSpacing(0)
-		TempLayout.addItem(QSpacerItem(0, 150, QSizePolicy.Minimum, QSizePolicy.Expanding))
-
-		TempWidget = QWidget()
-		TempWidget.setLayout(TempLayout)
-
-		self.Load_ScrollArea = QScrollArea()
-		self.Load_ScrollArea.setWidgetResizable(True)
-		self.Load_ScrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-		self.Load_ScrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-		self.Load_ScrollArea.setWidget(TempWidget)
+		self.MainContainer_ListWidget = QListWidget()
+		self.MainContainer_ListWidget.setSortingEnabled(True)
 
 		MainLayout = QVBoxLayout()
-		MainLayout.addLayout(NavigationLayout)
-		MainLayout.addWidget(self.Load_ScrollArea)
-		MainLayout.addWidget(self.StatusLabel)
+		MainLayout.addLayout(MainNavigation_Layout)
+		MainLayout.addWidget(self.MainContainer_ListWidget)
 		# -----------------------------------------------------------------------
 		# ----- Preparing -------------------------------------------------------
 		# -----------------------------------------------------------------------
-		self.Count = 0
 		self.ThreadPool = QThreadPool()
-		self.path = ""
-
+		self.LocalSQL = sqlite3.connect(os.path.dirname(os.path.realpath(__file__)) + "\\app.db")
+		self.Count = 0
+		self.ListWidth = 0
+		self.ListHeight = 0
+		
 		self.setLayout(MainLayout)
 
-	def getSetting_JSON(self):
-		SettingJSON = self.getJSON()
-		getKey = []
+	def DownloadButton(self):
+		if self.MainNavigation_Downloadbox.text() != "":
+			self.PreparingThread = DownloadThread(self.Count, self.MainNavigation_Downloadbox.text())
+			self.PreparingThread.Signals.status.connect(self.DownloadStatus)
+			self.PreparingThread.Signals.error.connect(self.DownloadError)
+			self.ThreadPool.start(self.PreparingThread)
 
-		for key in SettingJSON:
-			getKey.append(key)
+			self.MainContainer_RectangleList(self.Count, self.MainNavigation_Downloadbox.text())
 
-		for i in getKey:
-			if str.lower(i) is not "plugins":
-				SettingJSON["plugins"] = {}
+			self.MainNavigation_Downloadbox.setText("")
+			self.Count += 1
 
-			elif str.lower(i) is not "download":
-				SettingJSON["download"] = os.path.dirname(os.path.realpath(__file__))
+	# Others
+	def DownloadError(self, json):
+		if os.path.isfile(os.path.dirname(os.path.realpath(__file__)) + "\\log.txt") is True: 
+			x = open(os.path.dirname(os.path.realpath(__file__)) + "\\log.txt", "r+").read()
+				
+			open(os.path.dirname(os.path.realpath(__file__)) + "\\log.txt", "w+").write(x+ "\n" +json["ErrorDisplay"])
+		else: open(os.path.dirname(os.path.realpath(__file__)) + "\\log.txt", "w+").write(json["ErrorDisplay"])
 
-		# if Path Directory of Download is Blank from Config File
-		if SettingJSON["download"] == "":
-			# if the Folder is Exist
-			if os.path.isdir(os.path.dirname(os.path.realpath(__file__)) +"\\download") is True:
-				SettingJSON["download"] = os.path.dirname(os.path.realpath(__file__))
+		Alert = QMessageBox()
+		Alert.setWindowTitle("Error")
+		Alert.setText(json["ErrorDisplay"])
+		Alert.show()
+
+	def DownloadStatus(self, json):
+		CoverImage = self.findChild(QLabel, "CoverPage_ID"+ str(json["ID"]))
+		TitleLabel = self.findChild(QLabel, "TitleLabel_ID"+ str(json["ID"]))
+		StatusLabel = self.findChild(QLabel, "StatusLabel_ID"+ str(json["ID"]))
+		PageLabel = self.findChild(QLabel, "PageLabel_ID"+ str(json["ID"]))
+		SizeLabel = self.findChild(QLabel, "SizeLabel_ID"+ str(json["ID"]))
+		ProgressBar = self.findChild(QProgressBar, "ProgressBar_ID"+ str(json["ID"]))
+		DirectoryButton = self.findChild(QPushButton, "DirectoryButton_ID"+ str(json["ID"]))
+
+		if json["isError"] is True:
+			if os.path.isfile(os.path.dirname(os.path.realpath(__file__)) + "\\log.txt") is True: 
+				x = open(os.path.dirname(os.path.realpath(__file__)) + "\\log.txt", "r+").read()
+				
+				open(os.path.dirname(os.path.realpath(__file__)) + "\\log.txt", "w+").write(x+ "\n" +json["ErrorDisplay"])
+			else: open(os.path.dirname(os.path.realpath(__file__)) + "\\log.txt", "w+").write(json["ErrorDisplay"])
+
+			TitleLabel.setText("Error Detected! Check the Logs for Full Information!")
+			StatusLabel.setText("")
+			PageLabel.setText("")
+		
+		else:
+			if json["Cover"] != "":
+				getImage = QPixmap(json["Cover"])
+				getImage = getImage.scaledToHeight(self.ListWidth)
+
+				CoverImage.setPixmap(getImage)
+				# CoverImage.setScaledContents(True)
+				# CoverImage.setAlignment(Qt.AlignCenter)
+				
+			if json["Title"] != "": TitleLabel.setText(json["Title"])
+			if json["Directory"] != "": DirectoryButton.clicked.connect(functools.partial(self.DirectoryButton, json["Directory"]))
+			if json["Status"] != "": StatusLabel.setText(json["Status"])
+			if json["CurrentSize"] == json["TotalSize"]:
+				StatusLabel.setText("Done")
+				PageLabel.setText("Page " +str(json["TotalPage"])+ " to Page " +str(json["TotalPage"]))
+				ProgressBar.setMaximum(json["TotalSize"])
+				ProgressBar.setValue(json["TotalSize"])
 
 			else:
-				os.makedirs(os.path.dirname(os.path.realpath(__file__)) +"\\download")
+				SizeLabel.setText(str(json["CurrentSize"])+ "B to " +str(json["TotalSize"])+ "B")
+				PageLabel.setText("Page " +str(json["CurrentPage"])+ " to Page " +str(json["TotalPage"]))
+				ProgressBar.setMaximum(json["TotalSize"])
+				ProgressBar.setValue(json["CurrentSize"])
 
-				SettingJSON["download"] = os.path.dirname(os.path.realpath(__file__))
+	# https://www.mangapanda.com/tanaka-kun-wa-itsumo-kedaruge/32
 
-		else:
-			if os.path.isdir(SettingJSON["download"] +"\\download") is False:
-				os.makedirs(SettingJSON["download"] +"\\download")
-		# Update
-		SettingJSON.update()
+	def MainContainer_RectangleList(self, FetchID, FetchUrl):
+		CoverPage = QLabel()
+		CoverPage.setContentsMargins(0, 0, 10, 0)
+		CoverPage.setObjectName("CoverPage_ID"+ str(FetchID))
 
-		with open(os.path.dirname(os.path.realpath(__file__)) +"\\setting.json", "w+") as writeFile:
-			writeFile.write(json.dumps(SettingJSON, indent=4))
+		TitleLabel = QLabel("Fetching Data [ "+ FetchUrl +" ]")
+		TitleLabel.setWordWrap(True)
+		TitleLabel.setObjectName("TitleLabel_ID"+ str(FetchID))
+		StatusLabel = QLabel()
+		StatusLabel.setObjectName("StatusLabel_ID"+ str(FetchID))
+		StatusLabel.setContentsMargins(0, 80 ,0 ,0)
+		PageLabel = QLabel()
+		PageLabel.setObjectName("PageLabel_ID"+ str(FetchID))
+		SizeLabel = QLabel()
+		SizeLabel.setObjectName("SizeLabel_ID"+ str(FetchID))
 
-		return SettingJSON
+		ProgressBar = QProgressBar()
+		ProgressBar.setObjectName("ProgressBar_ID"+ str(FetchID))
+		ProgressBar.setTextVisible(False)
+		DirectoryButton = QPushButton("Directory")
+		DirectoryButton.setObjectName("DirectoryButton_ID"+ str(FetchID))
+		# RemoveButton = QPushButton("Remove")
+		RectangleList_FooterLayout = QHBoxLayout()
+		RectangleList_FooterLayout.addWidget(ProgressBar)
+		RectangleList_FooterLayout.addWidget(DirectoryButton)
+		# RectangleList_FooterLayout.addWidget(RemoveButton)
 
-	def getJSON(self):
-		# Preparing Variable
-		SettingJSON = None
-		# if setting.json exist
-		if os.path.isfile(os.path.dirname(os.path.realpath(__file__)) +"\\setting.json"):
-			# get Data Information from setting.json
-			with open(os.path.dirname(os.path.realpath(__file__)) + "\\setting.json", "r+") as readFile:
-				SettingJSON = json.loads(readFile.read())
+		RectangleList_RightLayout = QVBoxLayout()
+		RectangleList_RightLayout.setSpacing(0)
+		RectangleList_RightLayout.setContentsMargins(0, 0, 0, 0)
+		RectangleList_RightLayout.addWidget(TitleLabel)
+		RectangleList_RightLayout.addWidget(StatusLabel)
+		RectangleList_RightLayout.addWidget(PageLabel)
+		RectangleList_RightLayout.addWidget(SizeLabel)
+		RectangleList_RightLayout.addLayout(RectangleList_FooterLayout)
 
-			return SettingJSON
+		RectangleList_Layout = QHBoxLayout()
+		RectangleList_Layout.setSpacing(0)
+		RectangleList_Layout.setContentsMargins(10, 10, 10, 10)
+		RectangleList_Layout.addWidget(CoverPage)
+		RectangleList_Layout.addLayout(RectangleList_RightLayout)
 
-		else:
-			SettingJSON = {
-				"plugins": {},
-				"download": os.path.dirname(os.path.realpath(__file__))
-			}
+		RectangleList_Widget = QWidget()
+		RectangleList_Widget.setObjectName(str(FetchID))
+		RectangleList_Widget.setLayout(RectangleList_Layout)
 
-			if os.path.isdir(os.path.dirname(os.path.realpath(__file__)) + "\\download") is False:
-				os.makedirs("download")
+		Item = QListWidgetItem()
+		Item.setSizeHint(RectangleList_Widget.sizeHint())
 
-			with open(os.path.dirname(os.path.realpath(__file__)) + "\\setting.json", "w+") as writeFile:
-				writeFile.write(json.dumps(SettingJSON, indent=4))
+		Size = QSize(Item.sizeHint())
 
-		return SettingJSON
+		Test = QPixmap("cover.png")
+		Test = Test.scaledToHeight(Size.height())
+		CoverPage.setPixmap(Test)
 
-	def DynamicUi(self, titleText="", pathText=""):
-		DynamicUi_TitleLabel = QLabel(titleText)
-		DynamicUi_TitleLabel.setObjectName("DynamicUi_TitleID" + str(self.Count))
-		DynamicUi_StatusLabel = QLabel()
-		DynamicUi_StatusLabel.setObjectName("DynamicUi_StatusID" + str(self.Count))
-		DynamicUi_DirectoryLabel = QLabel("Path Directory: "+ self.path +"\\"+ pathText)
-		DynamicUi_ProgressBar = QProgressBar()
-		DynamicUi_ProgressBar.setObjectName("DynamicUi_ProgressBarID" + str(self.Count))
+		self.ListWidth = Size.width()
+		self.ListHeight = Size.height()
+		self.MainContainer_ListWidget.addItem(Item)
+		self.MainContainer_ListWidget.setItemWidget(Item, RectangleList_Widget)
 
-		DynamicUi_Layout = QVBoxLayout()
-		DynamicUi_Layout.addWidget(DynamicUi_TitleLabel)
-		DynamicUi_Layout.addWidget(QLabel())
-		DynamicUi_Layout.addWidget(DynamicUi_StatusLabel)
-		DynamicUi_Layout.addWidget(DynamicUi_DirectoryLabel)
-		DynamicUi_Layout.addWidget(DynamicUi_ProgressBar)
+	def DirectoryButton(self, Directory):
+		os.startfile(Directory)
 
-		DynamicUi_Widget = QWidget()
-		DynamicUi_Widget.setLayout(DynamicUi_Layout)
+class DownloadObject(QObject):
+	finished = pyqtSignal(dict)
+	status = pyqtSignal(dict)
+	error = pyqtSignal(dict)
 
-		return DynamicUi_Widget
+class DownloadThread(QRunnable):
+	def __init__(self, FetchID, FetchUrl):
+		QRunnable.__init__(self)
 
-	def Navigation_UrlButton(self):
-		if self.Navigation_Urlbox.text() != "":
-			self.x = UrlThread(self.Navigation_Urlbox.text(), self.Count)
-			self.x.status.connect(self.Navigation_UrlStatus)
-			self.x.finished.connect(self.Navigation_UrlFinished)
-			self.x.error.connect(self.Navigation_UrlError)
-			self.x.start()
+		self.FetchID = FetchID
+		self.FetchUrl = FetchUrl
+		self.FetchJSON = {
+			"FetchUrl": FetchUrl,
+			"FetchTitle": "",
+			"FetchCode": "",
+			"FetchAA": "",
+			"FetchTag": {},
+			"FetchCover": "",
+			"FetchSrc": [],
+			"FetchSize": [],
+			"DateRegister" : datetime.datetime.now().strftime("%Y")+ "年" +datetime.datetime.now().strftime("%m") +"月"+ datetime.datetime.now().strftime("%d") +"日",
+			"TimeRegister" : datetime.datetime.now().strftime("%H")+ "時" +datetime.datetime.now().strftime("%M") +"分"+ datetime.datetime.now().strftime("%S") +"秒"
+		}
+		self.FetchTitle = ""
+		self.PageCount = 0
+		self.PageTotal = 0
+		self.CurrentSize = 0
+		self.TotalSize = 0
+		self.LocalSQL = sqlite3.connect(os.path.dirname(os.path.realpath(__file__)) + "\\app.db")
+		self.Signals = DownloadObject()
 
-			self.Navigation_Urlbox.setText("")
-			self._Navigation_UrlButton.setEnabled(False)
-
-		else:
-			QMessageBox.warning(self, "Error", "Empty!")
-
-	def Navigation_UrlStatus(self, x):
-		self.StatusLabel.setText(x)
-
-	def Navigation_UrlError(self, x, y):
-		if x is True:
-			QMessageBox().warning(self, "Error", y)
-
-			self.StatusLabel.setText("")
-			self._Navigation_UrlButton.setEnabled(True)
-
-	def Navigation_UrlFinished(self, x, y, z):
-		self.path = self.getSetting_JSON()["download"] + "\\download"
-
-		self.StatusLabel.setText("")
-		self._Navigation_UrlButton.setEnabled(True)
-		self.LoadLayout.addWidget(self.DynamicUi(titleText=y["Title"], pathText=y["Title"]))
-		self.Load_ScrollArea.verticalScrollBar().setValue(self.Load_ScrollArea.verticalScrollBar().maximum())
-
-		self.Count += 1
-
-		self.Thread = DownloadThread(y, z, self.path)
-		self.Thread.signals.status.connect(self.Download_DynamicStatus)
-		self.Thread.signals.finished.connect(self.Download_DynamicFinished)
-		self.Thread.signals.error.connect(self.Download_DynamicError)
-
-		self.ThreadPool.start(self.Thread)
-
-	def Download_DynamicStatus(self, y):
-		getStatus = self.LoadWidget.findChild(QLabel, "DynamicUi_StatusID" + str(y["ID"]))
-		getStatus.setText("Status: " + y["Status"])
-
-		getProgressbar = self.LoadWidget.findChild(QProgressBar, "DynamicUi_ProgressBarID" + str(y["ID"]))
-		getProgressbar.setMaximum(y["Total"])
-		getProgressbar.setValue(y["Current"])
-
-		if y["Total"] == y["Current"] - 1:
-			getProgressbar.setMaximum(100)
-			getProgressbar.setValue(100)
-		
-	def Download_DynamicError(self, title, say):
-		QMessageBox().warning(self, "Error", "Title: " +title+ "\nDescription: " +say)
-
-	def Download_DynamicFinished(self, x):
-		pass
-
-class UrlThread(QThread):
-	finished = pyqtSignal(bool, dict, int)
-	error = pyqtSignal(bool, str)
-	status = pyqtSignal(str)
-
-	def __init__(self, x, y):
-		QThread.__init__(self)
-
-		self.getUrl = x
-		self.getID = y
-
-	def run(self):
-		getPlugins = self.getUrl.split("/")[2].split(".")[1] if len(self.getUrl.split("/")[2].split(".")) == 3 else self.getUrl.split("/")[2].split(".")[0]
-
-		if os.path.isfile(os.path.dirname(os.path.realpath(__file__)) + "/plugins/" +getPlugins+ ".py") is True:
-			try:
-				self.status.emit("Fetching Data Information from [ " +self.getUrl+ " ]")
+	def run(self):	
+		try:
+			getPlugins = self.FetchUrl.split("/")[2].split(".")[1] if len(self.FetchUrl.split("/")[2].split(".")) == 3 else self.FetchUrl.split("/")[2].split(".")[0]
+			if os.path.isfile(os.path.dirname(os.path.realpath(__file__)) + "/plugins/" +getPlugins+ ".py") is True:
 				# Reload External Python Script before using it
 				importlib.reload(importlib.import_module('.' +getPlugins, package='plugins'))
 				# Calling External Python Script
 				getImport = importlib.import_module('.' +getPlugins, package='plugins')
-				getDictionary = getImport.load(getUrl=self.getUrl)
+				getDictionary = getImport.load(getUrl=self.FetchUrl)
 
-				if self.CheckKeys(getDictionary) is True:
-					self.finished.emit(True, getDictionary, self.getID)
+				print(getDictionary)
 
-				else:
-					self.error.emit(True, "[ " +getPlugins+ ".py ] =====>> Either no Title, Page or Size Exist on Plugin's Script!\nPlease Complete the all requirements before you proceed to download!")
+				thread = []
+				count = 0
 
-			except Exception as e:
-				self.error.emit(True, "[ " +getPlugins+ ".py ] =====>> " + str(e))
+				for x in getDictionary["Size"]: self.TotalSize += int(x)
 
-		else:
-			self.error.emit(True, "There is no Plugins Name [" +getPlugins+  ".py] Exist!")
+				self.FetchTitle = getDictionary["Title"]
+				self.PageTotal = len(getDictionary["Src"])
+				self.Signals.status.emit({
+					"isError": False,
+					"ID": self.FetchID,
+					"Title": getDictionary["Title"],
+					"Cover": "",
+					"Status": "Preparing",
+					"Directory": "",
+					"CurrentSize": self.CurrentSize,
+					"TotalSize": self.TotalSize,
+					"CurrentPage": self.PageCount,	
+					"TotalPage": self.PageTotal
+				})
+					
+				r = requests.get(getDictionary["Cover"], stream=True)
 
-	def CheckKeys(self, x={}):
-		Gate = False
+				with open(os.path.dirname(os.path.realpath(__file__))+ "\\download\\" + getDictionary["Title"]+ os.path.splitext(getDictionary["Cover"])[1], "wb+") as writeFile:
+					for data in tqdm.tqdm(iterable=r.iter_content(chunk_size=1024), total=int(r.headers["content-length"]) / 1024, unit="KB"):
+						writeFile.write(data)
 
-		for _x in x:
-			if str(_x) is not "Title":
-				Gate = False
-
-			if str(_x) is not "Page":
-				Gate = False
-
-			if str(_x) is not "Size":
-				Gate = False
-
-			else:
-				Gate = True
-
-		return Gate
-
-class DownloadObject(QObject):
-	finished = pyqtSignal(bool)
-	error = pyqtSignal(str, str)
-	status = pyqtSignal(dict)
-
-class DownloadThread(QRunnable):
-	def __init__(self, x, y, z):
-		QRunnable.__init__(self)
-
-		self.Dictionary = x
-		self.getID = y
-		self.path = z
-		self.Count = 0
-
-		self.signals = DownloadObject()
-
-	def run(self):
-		# File Checking
-		isBroken = []
-		isExist = []
-		Thread = []
-
-		if os.path.isdir(self.path +"\\"+ self.Dictionary['Title']) is True:
-			for x in range(len(self.Dictionary['Page'])):
-				file = self.path +"\\" + self.Dictionary['Title'] +"\\"+ self.Dictionary['Title'] +" "+ self.LeadingZeros_Format(x, len(str(len(self.Dictionary['Page'])))) +os.path.splitext(self.Dictionary['Page'][x])[1]
-				# if the file exist
-				if os.path.isfile(file) is True:
-					# if the file is equal the file size
-					isExist.append(True)
-
-					# try to open if the file is not broken
-					try:
-						if int(self.Dictionary['Size'][x]) == os.path.getsize(file):
-							im = Image.open(file)
-							isBroken.append(False)
-
-						else:
-							isBroken.append(True)
-
-					except Exception as e:
-							isBroken.append(True)
-
-				else:
-					isExist.append(False)
-					isBroken.append(False)
-
-				self.signals.status.emit({
-					"Current" : x,
-					"Total" : len(self.Dictionary['Page']),
-					"ID" : self.getID,
-					"Status": "File Checking"
+				self.Signals.status.emit({
+					"isError": False,
+					"ID": self.FetchID,
+					"Title": "",
+					"Cover": os.path.dirname(os.path.realpath(__file__))+ "\\download\\" + getDictionary["Title"]+ os.path.splitext(getDictionary["Cover"])[1],
+					"Status": "",
+					"Directory": "",
+					"CurrentSize": self.CurrentSize,
+					"TotalSize": self.TotalSize,
+					"CurrentPage": self.PageCount,
+					"TotalPage": self.PageTotal
 				})
 
-			self.signals.status.emit({
-				"Current" : 0,
-				"Total" : len(self.Dictionary['Page']),
-				"ID" : self.getID,
-				"Status": "Downloading"
+				for x in getDictionary["Src"]:
+					thread.append(concurrent.futures.ThreadPoolExecutor().submit(self.Download, os.path.dirname(os.path.realpath(__file__))+ "\\download\\" + getDictionary["Title"], os.path.dirname(os.path.realpath(__file__))+ "\\download\\" + getDictionary["Title"]+ "\\" +getDictionary["Title"]+ " " +self.LeadingZeros_Format(count, len(str(len(getDictionary["Src"]))) )+ os.path.splitext(x)[1], x))
+					count += 1
+
+				self.Signals.status.emit({
+					"isError": False,
+					"ID": self.FetchID,
+					"Title": "",
+					"Cover": "",
+					"Status": "Downloading",
+					"Directory": os.path.dirname(os.path.realpath(__file__))+ "\\download\\" + getDictionary["Title"],
+					"CurrentSize": self.CurrentSize,
+					"TotalSize": self.TotalSize,
+					"CurrentPage": self.PageCount,
+					"TotalPage": self.PageTotal
+				})
+
+				for x in concurrent.futures.as_completed(thread):
+					x.result()
+
+			else:
+				self.Signals.error.emit({
+					"isError": True,
+					"ID": self.FetchID,
+					"ErrorDisplay": self.DateTime() +" => There is no Plugin Name [" +getPlugins+  ".py] Exist!"
+				})
+
+		except Exception as e:
+			self.Signals.status.emit({
+				"isError": True,
+				"ID": self.FetchID,
+				"ErrorDisplay": self.DateTime() +" => " + str(e)
 			})
+		
 
-			for x in range(len(self.Dictionary['Page'])):
-				r = requests.get(self.Dictionary['Page'][x], stream=True)
-				file = self.path +"\\" + self.Dictionary['Title'] +"\\"+ self.Dictionary['Title'] +" "+ self.LeadingZeros_Format(x, len(str(len(self.Dictionary['Page'])))) +os.path.splitext(self.Dictionary['Page'][x])[1]
-				folder = self.path +"\\"+ self.Dictionary['Title']
-				# if the file is exist
-				if isExist[x] is True:
-					# if the file is broken
-					if isBroken[x] is True:
-						Thread.append(concurrent.futures.ThreadPoolExecutor().submit(self.Download, folder, file, r))
-
-				else:
-					Thread.append(concurrent.futures.ThreadPoolExecutor().submit(self.Download, folder, file, r))
-
-			for x in concurrent.futures.as_completed(Thread):
-				x.result()
-
-		else:
-			self.signals.status.emit({
-				"Current" : 0,
-				"Total" : len(self.Dictionary['Page']),
-				"ID" : self.getID,
-				"Status": "Downloading"
-			})
-
-			for x in range(len(self.Dictionary['Page'])):
-				r = requests.get(self.Dictionary['Page'][x], stream=True)
-				file = self.path +"\\" + self.Dictionary['Title'] +"\\"+ self.Dictionary['Title'] +" "+ self.LeadingZeros_Format(x, len(str(len(self.Dictionary['Page'])))) +os.path.splitext(self.Dictionary['Page'][x])[1]
-				folder = self.path +"\\"+ self.Dictionary['Title']
-
-				Thread.append(concurrent.futures.ThreadPoolExecutor().submit(self.Download, folder, file, r))
-				
-			for x in concurrent.futures.as_completed(Thread):
-				x.result()
-
-		self.signals.status.emit({
-			"Current" : 0,
-			"Total" : len(self.Dictionary['Page']),
-			"ID" : self.getID,
-			"Status": "Finished"
-		})
-
-	def Download(self, folder, file, r):
+	def Download(self, folder, file, src):
 		try:
 			if os.path.isdir(folder) is True:
+				r = requests.get(src, stream=True)
+
 				with open(file, "wb+") as writeFile:
-					for data in tqdm.tqdm(iterable=r.iter_content(chunk_size=1024), total=int(r.headers['content-length']) / 1024, unit="KB", disable=True):
-						writeFile.write(data)
+					for data in tqdm.tqdm(iterable=r.iter_content(chunk_size=1024), total=int(r.headers["content-length"]) / 1024, unit="KB"):
+						x = data
+
+						writeFile.write(x)
+
+						self.CurrentSize += len(bytes(x))
+						self.Signals.status.emit({
+							"isError": False,
+							"ID": self.FetchID,
+							"Title": self.FetchTitle,
+							"Cover": "",
+							"Status": "Downloading",
+							"Directory": "",
+							"CurrentSize": self.CurrentSize,
+							"TotalSize": self.TotalSize,
+							"CurrentPage": self.PageCount,
+							"TotalPage": self.PageTotal
+						})
+
+				self.Signals.status.emit({
+					"isError": False,
+					"ID": self.FetchID,
+					"Title": self.FetchTitle,
+					"Cover": "",
+					"Status": "Downloading",
+					"Directory": "",
+					"CurrentSize": self.CurrentSize,
+					"TotalSize": self.TotalSize,
+					"CurrentPage": self.PageCount,
+					"TotalPage": self.PageTotal
+				})
+				self.PageCount += 1
 
 			else:
 				os.makedirs(folder)
 
-				with open(file, "wb+") as writeFile:
-					for data in tqdm.tqdm(iterable=r.iter_content(chunk_size=1024), total=int(r.headers['content-length']) / 1024, unit="KB", disable=True):
-						writeFile.write(data)
-
-			self.signals.status.emit({
-				"Current" :self.Count,
-				"Total" : len(self.Dictionary['Page']),
-				"ID" : self.getID,
-				"Status": "Downloading"
-			})
-
-			self.Count += 1
+				self.Download(folder, file, src)
 
 		except Exception as e:
-			self.signals.error.emit(self.Dictionary["Title"], str(e))
-			self.signals.status.emit({
-				"Current" : 0,
-				"Total" : len(self.Dictionary['Page']),
-				"ID" : self.getID,
-				"Status": "Failed"
+			self.Signals.status.emit({
+				"isError": True,
+				"ID": self.FetchID,
+				"ErrorDisplay": self.DateTime() +" => " + str(e)
 			})
+			self.Download(folder, file, src)
+
+	def DateTime(self):
+		Date = datetime.datetime.now().strftime("%Y")+ ":" +datetime.datetime.now().strftime("%m") +":"+ datetime.datetime.now().strftime("%d") +":"
+		Time = datetime.datetime.now().strftime("%H")+ ":" +datetime.datetime.now().strftime("%M") +":"+ datetime.datetime.now().strftime("%S") +":"
+
+		return Date +" "+ Time
 
 	def LeadingZeros_Format(self, num, size):
 		s = str(num) + ""
@@ -398,14 +365,75 @@ class DownloadThread(QRunnable):
 		while len(s) < size:
 			s = "0" + s
 
-		return s
+		return s 
 
 if __name__ == '__main__':
-	App = QApplication(sys.argv)
+	sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
-	Config = MainArea()
-	Config.resize(1000, 500)
-	Config.setWindowTitle("Hacker-chan Version Alpha 1.2_01")
+	if os.path.isdir(os.path.dirname(os.path.realpath(__file__)) + "plugins") is False:
+		os.makedirs(os.path.dirname(os.path.realpath(__file__)) + "plugins")
+
+	LocalSQL = None
+
+	if os.path.isfile(os.path.dirname(os.path.realpath(__file__)) + "\\app.db") is False:
+		LocalSQL = sqlite3.connect(os.path.dirname(os.path.realpath(__file__)) + "\\app.db")
+
+		LocalSQL.cursor().execute('''Create Table Config(
+			LocalDirectory text not null
+		)''')
+		LocalSQL.cursor().execute('''Create Table Fetch(
+			FetchID integer Primary Key AUTOINCREMENT,
+			FetchUrl text not null,
+			FetchTitle text not null,
+			FetchCode text not null,
+			FetchAA text not null,
+			FetchTag text not null,
+			FetchCover text not null,
+			FetchSrc text not null,
+			FetchSize integer not null,
+			DateRegister text not null,
+			TimeRegister text not null
+		)''')
+		LocalSQL.cursor().execute('''Create Table Download(
+			DownloadID integer Primary Key AUTOINCREMENT,
+			FetchID integer not null,
+			DownloadPath text not null,
+			DownloadCurrent integer not null,
+			DownloadTotal integer not null,
+			DateRegister text not null,
+			TimeRegister text not null
+		)''')
+		LocalSQL.cursor().execute('''Create Table Account(
+			AccountID integer Primary Key AUTOINCREMENT,
+			AccountUrl text not null,
+			AccountUsername text not null,
+			AccountPassword text not null,
+			AccountCache text not null,
+			AccountCookies text not null,
+			AccountStorage text not null,
+			DateRegister text not null,
+			TimeRegister text not null
+		)''')
+
+		LocalSQL.cursor().execute('''Insert into Config values (
+			'{0}'
+		)'''.format(
+			os.path.dirname(os.path.realpath(__file__)) + "\\app.db"
+		))
+
+	else:
+		LocalSQL = sqlite3.connect(os.path.dirname(os.path.realpath(__file__)) + "\\app.db")
+
+		LocalSQL.cursor().execute('''Update Config set LocalDirectory='{0}' '''.format(
+			os.path.dirname(os.path.realpath(__file__)) + "\\app.db"
+		))
+		LocalSQL.commit()
+
+	App = QApplication(sys.argv)
+	Config = MainWidget()
+
+	Config.resize(500, 500)
+	Config.setWindowTitle("PyDoujin Downloader Alpha 1.2_02")
 	Config.show()
 
 	App.exec_()
