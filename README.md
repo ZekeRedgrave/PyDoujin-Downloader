@@ -1,4 +1,4 @@
-# Hacker-chan
+# PyDoujin Downloader
 
 - Free Open Source for Reference Purposes
 - Use an URL to Download any Manga and Doujin Site
