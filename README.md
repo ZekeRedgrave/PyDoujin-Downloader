@@ -1,7 +1,7 @@
 # Hacker-chan
 
-- Free Open Source
-- Use as URL to Download any Manga, Doujin and etc
+- Free Open Source for Reference Purposes
+- Use an URL to Download any Manga and Doujin Site
 - This Project is made from Scratch using Python
 
 # How to use this? (Developer Only)
